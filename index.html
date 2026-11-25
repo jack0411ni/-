@@ -69,7 +69,7 @@
       <!-- 即時排行榜 -->
       <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <h2 class="font-bold text-base">🏆 即時預測排行榜</h2>
+          <h2 class="font-bold text-base">🏆 即時預測排行榜 <span class="text-xs font-normal text-indigo-400 ml-1">（點擊名字查看預測明細）</span></h2>
           <span class="text-xs text-slate-400">排序：猜中都數 ＞ 總誤差最小 ＞ 先猜先贏</span>
         </div>
         <div class="overflow-x-auto">
@@ -157,7 +157,8 @@
     // 狀態變數
     let allBets = [];
     let officialResults = { locked: false, cities: {} };
-    const userDraft = {}; // 儲存使用者的點選狀態
+    const userDraft = {};
+    const expandedIds = new Set(); // 記住目前展開明細的玩家
 
     // DOM 元素
     const tabBet = document.getElementById("tabBet");
@@ -168,12 +169,10 @@
     const betCardsContainer = document.getElementById("betCardsContainer");
     const adminCitiesContainer = document.getElementById("adminCitiesContainer");
 
-    // 判斷是否已鎖單
     function isLocked() {
       return officialResults.locked || Date.now() >= new Date(DEADLINE_ISO).getTime();
     }
 
-    // 渲染下注卡片
     function renderBetCards() {
       betCardsContainer.innerHTML = CITIES.map(c => `
         <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
@@ -216,7 +215,6 @@
       });
     }
 
-    // 渲染站長後台卡片
     function renderAdminCards() {
       adminCitiesContainer.innerHTML = CITIES.map(c => {
         const res = officialResults.cities?.[c.id] || { winner: "", margin: "" };
@@ -239,7 +237,6 @@
       document.getElementById("adminForceLock").checked = !!officialResults.locked;
     }
 
-    // 送出下注
     document.getElementById("btnSubmitBet").addEventListener("click", async () => {
       const msgEl = document.getElementById("submitMsg");
       if (isLocked()) {
@@ -291,7 +288,6 @@
       }
     });
 
-    // 站長儲存開票結果
     document.getElementById("btnSaveResults").addEventListener("click", async () => {
       const citiesData = {};
       for (const c of CITIES) {
@@ -312,7 +308,6 @@
       setTimeout(() => adminMsg.textContent = "", 3000);
     });
 
-    // 核心計分（流派 B：全六都正負數軸絕對誤差）
     function renderBoard() {
       const liveGrid = document.getElementById("liveCitiesGrid");
       let openedCitiesCount = 0;
@@ -389,10 +384,45 @@
         tbody.innerHTML = ranked.map((r, idx) => {
           const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
           const timeStr = r.timeMs ? new Date(r.timeMs).toLocaleString("zh-TW", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "-";
+          const isOpen = expandedIds.has(r.id);
+
+          // 產生該玩家的六都預測明細小卡
+          const detailCards = CITIES.map(c => {
+            const pick = r.picks?.[c.id];
+            if (!pick) return "";
+            const candName = pick.winner === "A" ? c.candA : c.candB;
+            const dot = pick.winner === "A" ? "🔵" : "🟢";
+            const res = officialResults.cities?.[c.id];
+            let statusHtml = "";
+
+            if (res && (res.winner === "A" || res.winner === "B")) {
+              const isHit = pick.winner === res.winner;
+              const actualSigned = res.winner === "A" ? Number(res.margin) : -Number(res.margin);
+              const predSigned = pick.winner === "A" ? Number(pick.margin) : -Number(pick.margin);
+              const err = (Math.round(Math.abs(predSigned - actualSigned) * 10) / 10).toFixed(1);
+              statusHtml = isHit
+                ? `<span class="text-emerald-400 font-medium">✅ 誤差 ${err}萬</span>`
+                : `<span class="text-rose-400 font-medium">❌ 誤差 ${err}萬</span>`;
+            }
+
+            return `
+              <div class="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-2 flex flex-col gap-0.5 text-xs">
+                <div class="flex items-center justify-between text-slate-400">
+                  <span class="font-semibold text-slate-300">${c.name}</span>
+                  ${statusHtml}
+                </div>
+                <div class="text-white font-medium">${dot} ${candName} <span class="text-amber-300">+${Number(pick.margin).toFixed(1)}萬</span></div>
+              </div>
+            `;
+          }).join("");
+
           return `
-            <tr class="hover:bg-slate-800/40">
+            <tr data-toggle="${r.id}" class="player-row cursor-pointer hover:bg-slate-800/60 transition">
               <td class="py-2.5 pr-2 font-bold">${openedCitiesCount > 0 ? medal : "-"}</td>
-              <td class="py-2.5 px-2 font-medium text-white">${escapeHtml(r.name)}</td>
+              <td class="py-2.5 px-2 font-medium text-white">
+                <span class="inline-block w-4 text-xs text-slate-400">${isOpen ? "▼" : "▶"}</span>
+                ${escapeHtml(r.name)}
+              </td>
               <td class="py-2.5 px-2 text-center font-bold text-indigo-400">
                 ${openedCitiesCount > 0 ? `${r.hits} / ${openedCitiesCount}` : "待開獎"}
               </td>
@@ -401,8 +431,25 @@
               </td>
               <td class="py-2.5 pl-2 text-right text-xs text-slate-400 hidden sm:table-cell">${timeStr}</td>
             </tr>
+            <tr class="${isOpen ? "" : "hidden"} bg-slate-950/80">
+              <td colspan="5" class="p-3">
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  ${detailCards}
+                </div>
+              </td>
+            </tr>
           `;
         }).join("");
+
+        // 綁定點擊展開/收合事件
+        document.querySelectorAll(".player-row").forEach(row => {
+          row.addEventListener("click", () => {
+            const id = row.dataset.toggle;
+            if (expandedIds.has(id)) expandedIds.delete(id);
+            else expandedIds.add(id);
+            renderBoard();
+          });
+        });
       }
 
       const adminList = document.getElementById("adminBetList");
@@ -458,7 +505,6 @@
       return String(str).replace(/[&<>"']/g, s => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[s]));
     }
 
-    // 綁定分頁與後台按鈕
     tabBet.addEventListener("click", () => switchTab("bet"));
     tabBoard.addEventListener("click", () => switchTab("board"));
     document.getElementById("btnAdminToggle").addEventListener("click", () => {
@@ -477,7 +523,6 @@
     });
     document.getElementById("btnCloseAdmin").addEventListener("click", () => viewAdmin.classList.add("hidden"));
 
-    // 初始化與即時監聽 Firebase
     renderBetCards();
     updateLockUI();
 
