@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2026 六都市長選情預測戰情室</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans pb-16">
+
+  <!-- 頂部導覽列 -->
+  <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-20">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div>
+        <h1 class="text-lg sm:text-xl font-bold tracking-tight text-white">🗳️ 2026 六都選情預測</h1>
+        <p class="text-xs text-slate-400">純娛樂預測｜流派 B（全六都數軸誤差）</p>
+      </div>
+      <button id="btnAdminToggle" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700">
+        ⚙️ 站長開獎
+      </button>
+    </div>
+
+    <!-- 分頁切換 -->
+    <div class="max-w-4xl mx-auto px-4 flex gap-2 pb-2">
+      <button id="tabBet" class="flex-1 py-2 text-sm font-semibold rounded-lg bg-indigo-600 text-white transition">我要預測</button>
+      <button id="tabBoard" class="flex-1 py-2 text-sm font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition">即時戰情室</button>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 mt-5">
+
+    <!-- 狀態提示條 -->
+    <div id="statusBanner" class="mb-4 p-3 rounded-xl bg-slate-900 border border-slate-800 text-sm flex flex-wrap items-center justify-between gap-2">
+      <span id="deadlineText" class="text-amber-400 font-medium">⏳ 截止時間：2026/11/28 16:00</span>
+      <span id="participantCount" class="text-slate-400">目前參與：載入中...</span>
+    </div>
+
+    <!-- ==================== 分頁 1：我要預測 ==================== -->
+    <section id="viewBet" class="space-y-4">
+      <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+        <label class="block text-sm font-medium text-slate-300 mb-1.5">你的暱稱（開獎排行榜顯示用）</label>
+        <input id="playerName" type="text" maxlength="16" placeholder="例如：台中阿明"
+          class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-indigo-500" />
+      </div>
+
+      <div id="betCardsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+      <div class="pt-2">
+        <button id="btnSubmitBet"
+          class="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-slate-400 font-bold text-base shadow-lg transition">
+          送出我的六都預測
+        </button>
+        <p id="submitMsg" class="text-center text-sm mt-2 min-h-[20px]"></p>
+      </div>
+    </section>
+
+    <!-- ==================== 分頁 2：即時戰情室 ==================== -->
+    <section id="viewBoard" class="hidden space-y-6">
+
+      <!-- 官方開票進度看板 -->
+      <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-bold text-base">📢 六都開票結果與群眾風向</h2>
+          <a href="https://www.cec.gov.tw/" target="_blank" class="text-xs text-indigo-400 hover:underline">前往中選會官網 ↗</a>
+        </div>
+        <div id="liveCitiesGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+      </div>
+
+      <!-- 即時排行榜 -->
+      <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <h2 class="font-bold text-base">🏆 即時預測排行榜</h2>
+          <span class="text-xs text-slate-400">排序：猜中都數 ＞ 總誤差最小 ＞ 先猜先贏</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left">
+            <thead class="text-xs text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="py-2 pr-2">名次</th>
+                <th class="py-2 px-2">暱稱</th>
+                <th class="py-2 px-2 text-center">猜中都數</th>
+                <th class="py-2 px-2 text-right">總誤差(萬)</th>
+                <th class="py-2 pl-2 text-right hidden sm:table-cell">送出時間</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboardBody" class="divide-y divide-slate-800/70"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 隱藏區塊：站長開獎後台 ==================== -->
+    <section id="viewAdmin" class="hidden mt-6 bg-slate-900 border-2 border-amber-500/60 p-4 rounded-xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="font-bold text-amber-400 text-base">🔐 站長開獎控制中心</h2>
+        <button id="btnCloseAdmin" class="text-xs text-slate-400 hover:text-white">關閉後台</button>
+      </div>
+
+      <div class="flex items-center justify-between bg-slate-950 p-3 rounded-lg border border-slate-800">
+        <div>
+          <p class="text-sm font-medium">手動強制鎖單（停止收單）</p>
+          <p class="text-xs text-slate-400">勾選後不管截止時間，立刻禁止新預測送出</p>
+        </div>
+        <input id="adminForceLock" type="checkbox" class="w-5 h-5 accent-amber-500 cursor-pointer" />
+      </div>
+
+      <div id="adminCitiesContainer" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+
+      <button id="btnSaveResults" class="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition">
+        發布 / 更新開票結果（全員即時同步）
+      </button>
+      <p id="adminMsg" class="text-center text-sm text-emerald-400 min-h-[20px]"></p>
+
+      <!-- 管理已下注名單（刪除重複用） -->
+      <div class="pt-3 border-t border-slate-800">
+        <h3 class="text-sm font-semibold text-slate-300 mb-2">🗑️ 管理下注紀錄（可刪除重複填寫）</h3>
+        <div id="adminBetList" class="space-y-1.5 max-h-56 overflow-y-auto text-xs"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getFirestore, collection, addDoc, doc, setDoc, deleteDoc,
+      onSnapshot, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAEsf5lOlRMu0yKmll4vKg03cDvd7q0Iu0",
+      authDomain: "tw-election-2026.firebaseapp.com",
+      projectId: "tw-election-2026",
+      storageBucket: "tw-election-2026.firebasestorage.app",
+      messagingSenderId: "43075056938",
+      appId: "1:43075056938:web:84752f52606a1213325a53",
+      measurementId: "G-WVBXET58NP"
+    };
+
+    // 自訂設定：截止時間 & 站長密碼
+    const DEADLINE_ISO = "2026-11-28T16:00:00+08:00";
+    const ADMIN_PASSWORD = "2026win";
+
+    // 2026 六都市長主要藍綠對決名單（A = 藍 / 正數軸，B = 綠 / 負數軸）
+    const CITIES = [
+      { id: "taipei",    name: "台北市", candA: "蔣萬安", candB: "沈伯洋" },
+      { id: "newtaipei", name: "新北市", candA: "李四川", candB: "蘇巧慧" },
+      { id: "taoyuan",   name: "桃園市", candA: "張善政", candB: "黃世杰" },
+      { id: "taichung",  name: "台中市", candA: "江啟臣", candB: "何欣純" },
+      { id: "tainan",    name: "台南市", candA: "謝龍介", candB: "陳亭妃" },
+      { id: "kaohsiung", name: "高雄市", candA: "柯志恩", candB: "賴瑞隆" }
+    ];
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // 狀態變數
+    let allBets = [];
+    let officialResults = { locked: false, cities: {} };
+    const userDraft = {}; // 儲存使用者的點選狀態
+
+    // DOM 元素
+    const tabBet = document.getElementById("tabBet");
+    const tabBoard = document.getElementById("tabBoard");
+    const viewBet = document.getElementById("viewBet");
+    const viewBoard = document.getElementById("viewBoard");
+    const viewAdmin = document.getElementById("viewAdmin");
+    const betCardsContainer = document.getElementById("betCardsContainer");
+    const adminCitiesContainer = document.getElementById("adminCitiesContainer");
+
+    // 判斷是否已鎖單
+    function isLocked() {
+      return officialResults.locked || Date.now() >= new Date(DEADLINE_ISO).getTime();
+    }
+
+    // 渲染下注卡片
+    function renderBetCards() {
+      betCardsContainer.innerHTML = CITIES.map(c => `
+        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-base">${c.name}</span>
+            <span class="text-xs text-slate-400">選擇勝方並填寫勝出票數</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" data-city="${c.id}" data-pick="A"
+              class="pick-btn py-2.5 rounded-lg border border-slate-700 bg-slate-950 hover:border-blue-500 font-medium text-sm transition">
+              🔵 ${c.candA}
+            </button>
+            <button type="button" data-city="${c.id}" data-pick="B"
+              class="pick-btn py-2.5 rounded-lg border border-slate-700 bg-slate-950 hover:border-emerald-500 font-medium text-sm transition">
+              🟢 ${c.candB}
+            </button>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400 whitespace-nowrap">預估贏</span>
+            <input type="number" step="0.1" min="0" max="150" inputmode="decimal"
+              id="margin_${c.id}" placeholder="例如 3.5"
+              class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" />
+            <span class="text-xs text-slate-400 whitespace-nowrap">萬票</span>
+          </div>
+        </div>
+      `).join("");
+
+      document.querySelectorAll(".pick-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const { city, pick } = btn.dataset;
+          userDraft[city] = pick;
+          document.querySelectorAll(`.pick-btn[data-city="${city}"]`).forEach(b => {
+            b.classList.remove("bg-blue-600", "border-blue-400", "bg-emerald-600", "border-emerald-400", "text-white");
+            b.classList.add("bg-slate-950", "border-slate-700");
+          });
+          btn.classList.remove("bg-slate-950", "border-slate-700");
+          if (pick === "A") btn.classList.add("bg-blue-600", "border-blue-400", "text-white");
+          else btn.classList.add("bg-emerald-600", "border-emerald-400", "text-white");
+        });
+      });
+    }
+
+    // 渲染站長後台卡片
+    function renderAdminCards() {
+      adminCitiesContainer.innerHTML = CITIES.map(c => {
+        const res = officialResults.cities?.[c.id] || { winner: "", margin: "" };
+        return `
+          <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2">
+            <div class="font-bold text-sm">${c.name}</div>
+            <div class="flex gap-2">
+              <select id="admin_win_${c.id}" class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm">
+                <option value="" ${res.winner === "" ? "selected" : ""}>尚未開票</option>
+                <option value="A" ${res.winner === "A" ? "selected" : ""}>🔵 ${c.candA} 勝</option>
+                <option value="B" ${res.winner === "B" ? "selected" : ""}>🟢 ${c.candB} 勝</option>
+              </select>
+              <input id="admin_margin_${c.id}" type="number" step="0.1" min="0" placeholder="贏(萬)"
+                value="${res.margin ?? ""}"
+                class="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm" />
+            </div>
+          </div>
+        `;
+      }).join("");
+      document.getElementById("adminForceLock").checked = !!officialResults.locked;
+    }
+
+    // 送出下注
+    document.getElementById("btnSubmitBet").addEventListener("click", async () => {
+      const msgEl = document.getElementById("submitMsg");
+      if (isLocked()) {
+        msgEl.textContent = "⛔ 已超過截止時間，停止受理預測！";
+        msgEl.className = "text-center text-sm mt-2 text-rose-400";
+        return;
+      }
+
+      const name = document.getElementById("playerName").value.trim();
+      if (!name) {
+        msgEl.textContent = "⚠️ 請先填寫你的暱稱！";
+        msgEl.className = "text-center text-sm mt-2 text-amber-400";
+        return;
+      }
+
+      const picks = {};
+      for (const c of CITIES) {
+        const winner = userDraft[c.id];
+        const rawMargin = document.getElementById(`margin_${c.id}`).value;
+        if (!winner || rawMargin === "" || isNaN(Number(rawMargin)) || Number(rawMargin) < 0) {
+          msgEl.textContent = `⚠️ 請完整填寫「${c.name}」的勝方與贏幾萬票！`;
+          msgEl.className = "text-center text-sm mt-2 text-amber-400";
+          return;
+        }
+        const margin = Math.round(Number(rawMargin) * 10) / 10;
+        picks[c.id] = { winner, margin };
+      }
+
+      const btn = document.getElementById("btnSubmitBet");
+      btn.disabled = true;
+      btn.textContent = "傳送中...";
+
+      try {
+        await addDoc(collection(db, "bets"), {
+          name,
+          picks,
+          createdAt: serverTimestamp(),
+          clientTime: Date.now()
+        });
+        msgEl.textContent = "✅ 預測送出成功！可切換至「即時戰情室」查看排名。";
+        msgEl.className = "text-center text-sm mt-2 text-emerald-400";
+        setTimeout(() => switchTab("board"), 900);
+      } catch (err) {
+        console.error(err);
+        msgEl.textContent = "❌ 送出失敗，請確認 Firebase 設定或網路連線。";
+        msgEl.className = "text-center text-sm mt-2 text-rose-400";
+      } finally {
+        updateLockUI();
+      }
+    });
+
+    // 站長儲存開票結果
+    document.getElementById("btnSaveResults").addEventListener("click", async () => {
+      const citiesData = {};
+      for (const c of CITIES) {
+        const winner = document.getElementById(`admin_win_${c.id}`).value;
+        const rawMargin = document.getElementById(`admin_margin_${c.id}`).value;
+        if (winner && rawMargin !== "") {
+          citiesData[c.id] = { winner, margin: Math.round(Number(rawMargin) * 10) / 10 };
+        }
+      }
+      const locked = document.getElementById("adminForceLock").checked;
+      await setDoc(doc(db, "meta", "results"), {
+        locked,
+        cities: citiesData,
+        updatedAt: serverTimestamp()
+      });
+      const adminMsg = document.getElementById("adminMsg");
+      adminMsg.textContent = "✅ 已發布！所有玩家螢幕已即時更新。";
+      setTimeout(() => adminMsg.textContent = "", 3000);
+    });
+
+    // 核心計分（流派 B：全六都正負數軸絕對誤差）
+    function renderBoard() {
+      const liveGrid = document.getElementById("liveCitiesGrid");
+      let openedCitiesCount = 0;
+
+      liveGrid.innerHTML = CITIES.map(c => {
+        const res = officialResults.cities?.[c.id];
+        const isOpened = res && (res.winner === "A" || res.winner === "B");
+        if (isOpened) openedCitiesCount++;
+
+        const countA = allBets.filter(b => b.picks?.[c.id]?.winner === "A").length;
+        const countB = allBets.filter(b => b.picks?.[c.id]?.winner === "B").length;
+        const total = countA + countB;
+        const pctA = total ? Math.round((countA / total) * 100) : 50;
+        const pctB = total ? 100 - pctA : 50;
+
+        const resultBadge = isOpened
+          ? `<span class="text-xs px-2 py-0.5 rounded-full font-bold ${res.winner === "A" ? "bg-blue-600/30 text-blue-300" : "bg-emerald-600/30 text-emerald-300"}">
+               結果：${res.winner === "A" ? c.candA : c.candB} 贏 ${res.margin} 萬
+             </span>`
+          : `<span class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">尚未開票</span>`;
+
+        return `
+          <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between gap-1">
+              <span class="font-bold text-sm">${c.name}</span>
+              ${resultBadge}
+            </div>
+            <div class="flex justify-between text-xs text-slate-400">
+              <span>🔵 ${c.candA} (${pctA}%)</span>
+              <span>(${pctB}%) ${c.candB} 🟢</span>
+            </div>
+            <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden flex">
+              <div class="bg-blue-500 h-full transition-all" style="width:${pctA}%"></div>
+              <div class="bg-emerald-500 h-full transition-all" style="width:${pctB}%"></div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      const ranked = allBets.map(bet => {
+        let hits = 0;
+        let totalError = 0;
+
+        for (const c of CITIES) {
+          const res = officialResults.cities?.[c.id];
+          const pick = bet.picks?.[c.id];
+          if (res && (res.winner === "A" || res.winner === "B") && pick) {
+            if (pick.winner === res.winner) hits++;
+            const actualSigned = res.winner === "A" ? Number(res.margin) : -Number(res.margin);
+            const predSigned = pick.winner === "A" ? Number(pick.margin) : -Number(pick.margin);
+            totalError += Math.abs(predSigned - actualSigned);
+          }
+        }
+
+        const timeMs = bet.createdAt?.toMillis ? bet.createdAt.toMillis() : (bet.clientTime || 0);
+        return {
+          ...bet,
+          hits,
+          totalError: Math.round(totalError * 10) / 10,
+          timeMs
+        };
+      });
+
+      ranked.sort((a, b) => {
+        if (b.hits !== a.hits) return b.hits - a.hits;
+        if (a.totalError !== b.totalError) return a.totalError - b.totalError;
+        return a.timeMs - b.timeMs;
+      });
+
+      const tbody = document.getElementById("leaderboardBody");
+      if (ranked.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-500">目前還沒有人預測，搶頭香吧！</td></tr>`;
+      } else {
+        tbody.innerHTML = ranked.map((r, idx) => {
+          const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
+          const timeStr = r.timeMs ? new Date(r.timeMs).toLocaleString("zh-TW", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "-";
+          return `
+            <tr class="hover:bg-slate-800/40">
+              <td class="py-2.5 pr-2 font-bold">${openedCitiesCount > 0 ? medal : "-"}</td>
+              <td class="py-2.5 px-2 font-medium text-white">${escapeHtml(r.name)}</td>
+              <td class="py-2.5 px-2 text-center font-bold text-indigo-400">
+                ${openedCitiesCount > 0 ? `${r.hits} / ${openedCitiesCount}` : "待開獎"}
+              </td>
+              <td class="py-2.5 px-2 text-right font-mono ${openedCitiesCount > 0 ? "text-amber-300" : "text-slate-500"}">
+                ${openedCitiesCount > 0 ? r.totalError.toFixed(1) : "-"}
+              </td>
+              <td class="py-2.5 pl-2 text-right text-xs text-slate-400 hidden sm:table-cell">${timeStr}</td>
+            </tr>
+          `;
+        }).join("");
+      }
+
+      const adminList = document.getElementById("adminBetList");
+      adminList.innerHTML = ranked.map(r => `
+        <div class="flex items-center justify-between bg-slate-950 px-3 py-1.5 rounded border border-slate-800">
+          <span>${escapeHtml(r.name)}</span>
+          <button data-del="${r.id}" class="del-bet-btn text-rose-400 hover:underline">刪除</button>
+        </div>
+      `).join("");
+
+      document.querySelectorAll(".del-bet-btn").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          if (confirm("確定要刪除這筆預測紀錄？")) {
+            await deleteDoc(doc(db, "bets", btn.dataset.del));
+          }
+        });
+      });
+
+      document.getElementById("participantCount").textContent = `目前參與：${allBets.length} 人`;
+    }
+
+    function updateLockUI() {
+      const btn = document.getElementById("btnSubmitBet");
+      const banner = document.getElementById("deadlineText");
+      if (isLocked()) {
+        btn.disabled = true;
+        btn.textContent = "🔒 預測已截止（等待開獎中）";
+        banner.textContent = "🔒 已鎖單停止預測";
+        banner.className = "text-rose-400 font-medium";
+      } else {
+        btn.disabled = false;
+        btn.textContent = "送出我的六都預測";
+        banner.textContent = "⏳ 截止時間：2026/11/28 16:00";
+        banner.className = "text-amber-400 font-medium";
+      }
+    }
+
+    function switchTab(tab) {
+      if (tab === "bet") {
+        viewBet.classList.remove("hidden");
+        viewBoard.classList.add("hidden");
+        tabBet.className = "flex-1 py-2 text-sm font-semibold rounded-lg bg-indigo-600 text-white transition";
+        tabBoard.className = "flex-1 py-2 text-sm font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition";
+      } else {
+        viewBet.classList.add("hidden");
+        viewBoard.classList.remove("hidden");
+        tabBoard.className = "flex-1 py-2 text-sm font-semibold rounded-lg bg-indigo-600 text-white transition";
+        tabBet.className = "flex-1 py-2 text-sm font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition";
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, s => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[s]));
+    }
+
+    // 綁定分頁與後台按鈕
+    tabBet.addEventListener("click", () => switchTab("bet"));
+    tabBoard.addEventListener("click", () => switchTab("board"));
+    document.getElementById("btnAdminToggle").addEventListener("click", () => {
+      if (!viewAdmin.classList.contains("hidden")) {
+        viewAdmin.classList.add("hidden");
+        return;
+      }
+      const pwd = prompt("請輸入站長開獎密碼：");
+      if (pwd === ADMIN_PASSWORD) {
+        renderAdminCards();
+        viewAdmin.classList.remove("hidden");
+        viewAdmin.scrollIntoView({ behavior: "smooth" });
+      } else if (pwd !== null) {
+        alert("密碼錯誤！");
+      }
+    });
+    document.getElementById("btnCloseAdmin").addEventListener("click", () => viewAdmin.classList.add("hidden"));
+
+    // 初始化與即時監聽 Firebase
+    renderBetCards();
+    updateLockUI();
+
+    onSnapshot(collection(db, "bets"), (snap) => {
+      allBets = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderBoard();
+    });
+
+    onSnapshot(doc(db, "meta", "results"), (snap) => {
+      officialResults = snap.exists() ? snap.data() : { locked: false, cities: {} };
+      updateLockUI();
+      renderBoard();
+      if (!viewAdmin.classList.contains("hidden")) renderAdminCards();
+    });
+  </script>
+</body>
+</html>
